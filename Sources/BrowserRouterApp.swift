@@ -107,7 +107,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func openMenuBarSettings() {
-        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.MenuBarSettings")!)
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.ControlCenter-Settings.extension")!)
     }
 
     // ─── Windows ───────────────────────────────────────────────
@@ -181,7 +181,7 @@ struct WelcomeView: View {
                 .background(Color(.controlBackgroundColor).cornerRadius(8))
 
                 Button("Ouvrir les réglages Menu Bar") {
-                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.MenuBarSettings")!)
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.ControlCenter-Settings.extension")!)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.accentColor)
