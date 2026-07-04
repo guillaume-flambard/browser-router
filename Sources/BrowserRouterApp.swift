@@ -20,6 +20,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 self.openWelcome()
             }
+        } else if #available(macOS 26, *) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                self.checkMenuBarVisibility()
+            }
         }
     }
 
@@ -58,8 +62,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem.menu = menu
         statusItem.isVisible = true
-
-        NSLog("BrowserRouter: status item set up with arrow.triangle.branch icon")
+        NSLog("BrowserRouter: status item set up")
     }
 
     private func createHeaderItem() -> NSMenuItem {
@@ -70,11 +73,48 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return item
     }
 
+    // ─── macOS 26 Menu Bar Allow-List Detection ────────────────
+
+    private func checkMenuBarVisibility() {
+        guard let btn = statusItem?.button else { return }
+        let win = btn.window
+        if win == nil || !win!.isVisible || win!.screen == nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.openTahoeGuidance()
+            }
+        } else {
+            NSLog("BrowserRouter: status item window is visible ✅")
+        }
+    }
+
+    @objc private func openTahoeGuidance() {
+        let alert = NSAlert()
+        alert.messageText = "BrowserRouter peut être masqué par macOS"
+        alert.informativeText = """
+        macOS 26 (Tahoe) a une nouvelle liste d'autorisation pour les icônes de la barre de menus.
+
+        → Va dans Réglages Système > Menu Bar > Allow in the Menu Bar
+        → Active « BrowserRouter »
+
+        L'application fonctionne, mais macOS peut cacher son icône.
+        """
+        alert.addButton(withTitle: "Ouvrir les réglages Menu Bar")
+        alert.addButton(withTitle: "OK")
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            openMenuBarSettings()
+        }
+    }
+
+    private func openMenuBarSettings() {
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.MenuBarSettings")!)
+    }
+
     // ─── Windows ───────────────────────────────────────────────
 
     @objc private func openWelcome() {
         let win = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 320),
+            contentRect: NSRect(x: 0, y: 0, width: 440, height: 380),
             styleMask: [.titled, .closable],
             backing: .buffered, defer: false
         )
@@ -124,22 +164,39 @@ struct WelcomeView: View {
             Spacer()
 
             Image(systemName: "arrow.triangle.branch")
-                .font(.system(size: 48))
+                .font(.system(size: 40))
                 .foregroundColor(.accentColor)
 
             Text("BrowserRouter")
                 .font(.largeTitle).bold()
 
-            Text("Route local dev URLs to Chrome\nand everything else to Safari.")
-                .font(.body).multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
+            if #available(macOS 26, *) {
+                VStack(spacing: 8) {
+                    Label("Étape 1 : Ouvre Réglages > Menu Bar", systemImage: "1.circle")
+                    Label("Étape 2 : Active « BrowserRouter » dans « Allow in the Menu Bar »", systemImage: "2.circle")
+                    Label("Étape 3 : Reviens ici et clique « Set as Default Browser »", systemImage: "3.circle")
+                }
+                .font(.callout)
+                .padding(10)
+                .background(Color(.controlBackgroundColor).cornerRadius(8))
 
-            VStack(alignment: .leading, spacing: 6) {
-                Label("Look in the menu bar (top-right)", systemImage: "menubar.arrow.up.rectangle")
-                Label("Click the  icon to open the menu", systemImage: "arrow.triangle.branch")
-                Label("Select \"Set as Default Browser\"", systemImage: "checkmark.circle")
+                Button("Ouvrir les réglages Menu Bar") {
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.MenuBarSettings")!)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.accentColor)
+            } else {
+                Text("Route local dev URLs to Chrome\nand everything else to Safari.")
+                    .font(.body).multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Look in the menu bar (top-right)", systemImage: "menubar.arrow.up.rectangle")
+                    Label("Click the  icon to open the menu", systemImage: "arrow.triangle.branch")
+                    Label("Select \"Set as Default Browser\"", systemImage: "checkmark.circle")
+                }
+                .font(.callout)
             }
-            .font(.callout)
 
             HStack(spacing: 16) {
                 Button("Set as Default Browser") {
@@ -157,7 +214,7 @@ struct WelcomeView: View {
             Spacer()
         }
         .padding(32)
-        .frame(width: 420, height: 320)
+        .frame(width: 440, height: 380)
     }
 }
 
