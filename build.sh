@@ -34,10 +34,12 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 cp "$BUILD_DIR/$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 cp "$PROJECT_DIR/Resources/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 
-# Copy icon if available
-if [ -f "$PROJECT_DIR/Resources/AppIcon.icns" ]; then
-    cp "$PROJECT_DIR/Resources/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
-fi
+# Copy resources
+for res in AppIcon.icns MenuBarIcon.png MenuBarIcon@2x.png; do
+    if [ -f "$PROJECT_DIR/Resources/$res" ]; then
+        cp "$PROJECT_DIR/Resources/$res" "$APP_BUNDLE/Contents/Resources/$res"
+    fi
+done
 
 echo "   ✓ .app bundle created"
 

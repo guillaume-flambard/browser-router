@@ -1,23 +1,40 @@
 import Foundation
 import AppKit
 
-final class Router {
+final class Router: ObservableObject {
     static let shared = Router()
     static let bundleID = "com.user.browserrouter"
 
-    static var isDefault: Bool {
+    @Published var isDefaultBrowser = false
+
+    private init() {
+        isDefaultBrowser = Self.checkIsDefault()
+    }
+
+    private static func checkIsDefault() -> Bool {
         if let app = NSWorkspace.shared.urlForApplication(toOpen: URL(string: "https://example.com")!) {
             return app.lastPathComponent == "BrowserRouter.app"
         }
         return false
     }
 
-    static func setAsDefault() {
-        LSSetDefaultHandlerForURLScheme("http" as CFString, bundleID as CFString)
-        LSSetDefaultHandlerForURLScheme("https" as CFString, bundleID as CFString)
+    func refreshStatus() {
+        isDefaultBrowser = Self.checkIsDefault()
     }
 
-    func route(_ url: URL, app: NSApplication) {
+    func setAsDefault() {
+        LSSetDefaultHandlerForURLScheme("http" as CFString, Self.bundleID as CFString)
+        LSSetDefaultHandlerForURLScheme("https" as CFString, Self.bundleID as CFString)
+        isDefaultBrowser = true
+    }
+
+    func restoreSafari() {
+        LSSetDefaultHandlerForURLScheme("http" as CFString, "com.apple.Safari" as CFString)
+        LSSetDefaultHandlerForURLScheme("https" as CFString, "com.apple.Safari" as CFString)
+        isDefaultBrowser = false
+    }
+
+    func route(_ url: URL) {
         let browser = isLocal(url) ? "Google Chrome" : "Safari"
 
         let process = Process()
