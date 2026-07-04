@@ -14,36 +14,55 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         router.refreshStatus()
         setupStatusBar()
+
+        if !UserDefaults.standard.bool(forKey: "hasLaunched") {
+            UserDefaults.standard.set(true, forKey: "hasLaunched")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.openWelcome()
+            }
+        }
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls { router.route(url) }
     }
 
+    // ─── Status Bar ────────────────────────────────────────────
+
     private func setupStatusBar() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        guard let btn = statusItem.button else {
-            NSLog("BrowserRouter: failed to create status item button")
-            return
-        }
-        btn.image = makeStatusIcon()
-        btn.toolTip = "BrowserRouter"
-        btn.isHighlighted = true
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        guard let btn = statusItem.button else { return }
+
+        let attrStr = NSAttributedString(
+            string: "  ⑂ BrowserRouter",
+            attributes: [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium),
+                .foregroundColor: NSColor.controlTextColor,
+            ]
+        )
+        btn.attributedTitle = attrStr
+        btn.toolTip = "BrowserRouter — Click to route URLs"
 
         let menu = NSMenu()
         menu.addItem(createHeaderItem())
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: router.isDefaultBrowser ? "Disable (restore Safari)" : "Set as Default Browser",
-                                action: #selector(toggleDefault), keyEquivalent: ""))
+
+        let toggleItem = NSMenuItem(
+            title: router.isDefaultBrowser ? "Disable (restore Safari)" : "Set as Default Browser",
+            action: #selector(toggleDefault),
+            keyEquivalent: ""
+        )
+        toggleItem.target = self
+        menu.addItem(toggleItem)
+
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ","))
+        menu.addItem(NSMenuItem(title: "Welcome Window", action: #selector(openWelcome), keyEquivalent: "w"))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
         statusItem.menu = menu
         statusItem.isVisible = true
-
-        NSLog("BrowserRouter: status bar item created")
     }
 
     private func createHeaderItem() -> NSMenuItem {
@@ -54,49 +73,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return item
     }
 
-    private func makeStatusIcon() -> NSImage {
-        let size = NSSize(width: 18, height: 18)
-        let img = NSImage(size: size)
-        img.isTemplate = true
-        img.lockFocus()
+    // ─── Windows ───────────────────────────────────────────────
 
-        NSColor.controlTextColor.setStroke()
-        NSColor.controlTextColor.setFill()
-
-        let path = NSBezierPath()
-        path.lineWidth = 2.4
-        path.lineCapStyle = .round
-        path.lineJoinStyle = .round
-
-        // Horizontal line
-        path.move(to: NSPoint(x: 2, y: 9))
-        path.line(to: NSPoint(x: 9, y: 9))
-        path.stroke()
-
-        // Upper branch (Chrome direction)
-        path.move(to: NSPoint(x: 9, y: 9))
-        path.line(to: NSPoint(x: 16, y: 3))
-        path.stroke()
-
-        // Lower branch (Safari direction)
-        path.move(to: NSPoint(x: 9, y: 9))
-        path.line(to: NSPoint(x: 16, y: 15))
-        path.stroke()
-
-        // Origin dot
-        NSBezierPath(ovalIn: NSRect(x: 1.5, y: 8, width: 3, height: 3)).fill()
-
-        img.unlockFocus()
-        return img
-    }
-
-    @objc private func toggleDefault() {
-        if router.isDefaultBrowser {
-            router.restoreSafari()
-        } else {
-            router.setAsDefault()
-        }
-        rebuildMenu()
+    @objc private func openWelcome() {
+        let win = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 320),
+            styleMask: [.titled, .closable],
+            backing: .buffered, defer: false
+        )
+        win.title = "Welcome to BrowserRouter"
+        win.center()
+        win.contentView = NSHostingView(rootView: WelcomeView(
+            router: router,
+            onDismiss: { win.close() },
+            onSettings: { win.close(); self.openSettings() }
+        ))
+        win.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     @objc private func openSettings() {
@@ -107,17 +100,71 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         win.title = "BrowserRouter Settings"
         win.center()
-        win.contentView = NSHostingView(rootView: SettingsView(router: router, onClose: { win.close() }))
+        win.contentView = NSHostingView(rootView: SettingsView(
+            router: router,
+            onClose: { win.close() }
+        ))
         win.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private func rebuildMenu() {
+    @objc private func toggleDefault() {
+        if router.isDefaultBrowser { router.restoreSafari() }
+        else { router.setAsDefault() }
         setupStatusBar()
     }
 }
 
-// MARK: - SwiftUI Views
+// MARK: - Welcome View
+
+struct WelcomeView: View {
+    @ObservedObject var router: Router
+    let onDismiss: () -> Void
+    let onSettings: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            Image(systemName: "arrow.triangle.branch")
+                .font(.system(size: 48))
+                .foregroundColor(.accentColor)
+
+            Text("BrowserRouter")
+                .font(.largeTitle).bold()
+
+            Text("Route local dev URLs to Chrome\nand everything else to Safari.")
+                .font(.body).multilineTextAlignment(.center)
+                .foregroundColor(.secondary)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Label("Look in the menu bar (top-right)", systemImage: "menubar.arrow.up.rectangle")
+                Label("Click the ⑂ icon to open the menu", systemImage: "hand.point.up")
+                Label("Select \"Set as Default Browser\"", systemImage: "checkmark.circle")
+            }
+            .font(.callout)
+
+            HStack(spacing: 16) {
+                Button("Set as Default Browser") {
+                    router.setAsDefault()
+                    onDismiss()
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button("Later") {
+                    onDismiss()
+                }
+                .buttonStyle(.bordered)
+            }
+
+            Spacer()
+        }
+        .padding(32)
+        .frame(width: 420, height: 320)
+    }
+}
+
+// MARK: - Header View
 
 struct HeaderView: View {
     @ObservedObject var router: Router
@@ -138,6 +185,8 @@ struct HeaderView: View {
         .padding(.vertical, 4)
     }
 }
+
+// MARK: - Settings View
 
 struct SettingsView: View {
     @ObservedObject var router: Router
