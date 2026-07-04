@@ -1,43 +1,37 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# BrowserRouter — URL Router Installer
-# Routes local dev URLs (localhost, 192.168.*, *.test, etc.) to Chrome
-# and everything else to Safari
+# BrowserRouter installer
+# Run this from the project directory or use the .dmg
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="BrowserRouter"
-APP_SOURCE="$(cd "$(dirname "$0")" && pwd)/$APP_NAME.app"
+APP_SOURCE="$SCRIPT_DIR/build/$APP_NAME.app"
 APP_DEST="$HOME/Applications/$APP_NAME.app"
-BUNDLE_ID="com.user.browserrouter"
+DMG_SOURCE="$SCRIPT_DIR/build/$APP_NAME.dmg"
 
-echo "==> BrowserRouter Installer"
-echo ""
-
-# 1. Copy app to ~/Applications
-mkdir -p "$HOME/Applications"
-if [ -d "$APP_DEST" ]; then
-    echo "   Removing previous installation..."
-    rm -rf "$APP_DEST"
+if [ -d "$APP_SOURCE" ]; then
+    echo "Installing from build/$APP_NAME.app ..."
+    mkdir -p "$HOME/Applications"
+    cp -R "$APP_SOURCE" "$APP_DEST"
+    echo "✓ Copied to $APP_DEST"
+elif [ -f "$DMG_SOURCE" ]; then
+    echo "Mounting DMG to install..."
+    hdiutil attach "$DMG_SOURCE" -mountpoint /tmp/browserrouter-install -quiet
+    mkdir -p "$HOME/Applications"
+    cp -R "/tmp/browserrouter-install/$APP_NAME.app" "$APP_DEST"
+    hdiutil detach /tmp/browserrouter-install -quiet
+    echo "✓ Installed from DMG"
+else
+    echo "Error: build/$APP_NAME.app or build/$APP_NAME.dmg not found."
+    echo "Run './build.sh' first, or install via the .dmg file."
+    exit 1
 fi
-cp -R "$APP_SOURCE" "$APP_DEST"
-echo "   ✓ Copied $APP_NAME.app → $APP_DEST"
 
-# 2. Register with Launch Services
+# Register with Launch Services
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP_DEST" 2>/dev/null
-echo "   ✓ Registered with Launch Services"
-
-# 3. Set as default http/https handler
-swift -e '
-import Foundation
-LSSetDefaultHandlerForURLScheme("http" as CFString, "'$BUNDLE_ID'" as CFString)
-LSSetDefaultHandlerForURLScheme("https" as CFString, "'$BUNDLE_ID'" as CFString)
-' 2>/dev/null
-echo "   ✓ Set as default browser handler"
 
 echo ""
-echo "==> Done! BrowserRouter is now your default browser."
-echo "    • localhost, *.test, *.local, *.dev, 10.*, 192.168.* → Chrome"
-echo "    • Everything else → Safari"
-echo ""
-echo "    To change this, go to System Settings > Desktop & Dock"
-echo "    > Default web browser and select another option."
+echo "BrowserRouter installed!"
+echo "→ Launch it from your Applications folder"
+echo "→ Click 'Set as Default Browser' in the menubar"
