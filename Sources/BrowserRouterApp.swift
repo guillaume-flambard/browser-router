@@ -33,13 +33,42 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // ─── Status Bar ────────────────────────────────────────────
 
+    private func makeIcon() -> NSImage {
+        let img = NSImage(size: NSSize(width: 18, height: 18))
+        img.lockFocus()
+
+        let bg = NSColor.controlTextColor
+        bg.set()
+
+        let path = NSBezierPath()
+        path.move(to: NSPoint(x: 9, y: 16))
+        path.line(to: NSPoint(x: 9, y: 2))
+        path.move(to: NSPoint(x: 4, y: 8))
+        path.line(to: NSPoint(x: 9, y: 2))
+        path.line(to: NSPoint(x: 14, y: 8))
+        path.move(to: NSPoint(x: 9, y: 2))
+        path.line(to: NSPoint(x: 9, y: 16))
+        path.lineWidth = 2.0
+        path.lineCapStyle = .round
+        path.stroke()
+
+        let circle = NSBezierPath(ovalIn: NSRect(x: 4, y: 10, width: 10, height: 6))
+        circle.lineWidth = 1.5
+        circle.stroke()
+
+        img.unlockFocus()
+        img.isTemplate = true
+        return img
+    }
+
     private func setupStatusBar() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: 26)
         guard let btn = statusItem.button else { return }
 
-        let icon = NSImage(systemSymbolName: "arrow.triangle.branch", accessibilityDescription: "BrowserRouter")!
-        icon.isTemplate = true
+        let icon = makeIcon()
         btn.image = icon
+        btn.imageScaling = .scaleProportionallyDown
+        btn.imagePosition = .imageOnly
         btn.toolTip = "BrowserRouter – route local URLs to Chrome, others to Safari"
 
         let menu = NSMenu()
@@ -57,12 +86,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Welcome Window", action: #selector(openWelcome), keyEquivalent: "w"))
+        menu.addItem(NSMenuItem(title: "Refresh Menu Bar Icon", action: #selector(refreshStatusItem), keyEquivalent: "r"))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
         statusItem.menu = menu
         statusItem.isVisible = true
-        NSLog("BrowserRouter: status item set up")
+        NSLog("BrowserRouter: status item set up (fixed length 26)")
     }
 
     private func createHeaderItem() -> NSMenuItem {
@@ -145,6 +175,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    @objc private func refreshStatusItem() {
+        if statusItem != nil {
+            NSStatusBar.system.removeStatusItem(statusItem)
+            statusItem = nil
+        }
+        setupStatusBar()
+    }
+
+    @objc private func restart() {
+        let url = Bundle.main.bundleURL
+        let config = NSWorkspace.OpenConfiguration()
+        config.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: url, configuration: config) { _, _ in
+            NSApplication.shared.terminate(nil)
+        }
+    }
+
     @objc private func toggleDefault() {
         if router.isDefaultBrowser { router.restoreSafari() }
         else { router.setAsDefault() }
@@ -180,11 +227,21 @@ struct WelcomeView: View {
                 .padding(10)
                 .background(Color(.controlBackgroundColor).cornerRadius(8))
 
-                Button("Ouvrir les réglages Menu Bar") {
+                Button("1. Ouvrir les réglages Menu Bar") {
                     NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.ControlCenter-Settings.extension")!)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.accentColor)
+
+                Button("2. Redémarrer l'app (important)") {
+                    let url = Bundle.main.bundleURL
+                    let cfg = NSWorkspace.OpenConfiguration()
+                    cfg.createsNewApplicationInstance = true
+                    NSWorkspace.shared.openApplication(at: url, configuration: cfg) { _, _ in
+                        NSApplication.shared.terminate(nil)
+                    }
+                }
+                .buttonStyle(.bordered)
             } else {
                 Text("Route local dev URLs to Chrome\nand everything else to Safari.")
                     .font(.body).multilineTextAlignment(.center)
