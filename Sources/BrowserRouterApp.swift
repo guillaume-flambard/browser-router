@@ -1,7 +1,6 @@
 import Cocoa
 import SwiftUI
 
-@main
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let router = Router.shared
@@ -23,60 +22,69 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupStatusBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = makeStatusIcon()
-        statusItem.button?.toolTip = "BrowserRouter"
+        guard let btn = statusItem.button else {
+            NSLog("BrowserRouter: failed to create status item button")
+            return
+        }
+        btn.image = makeStatusIcon()
+        btn.toolTip = "BrowserRouter"
+        btn.isHighlighted = true
 
         let menu = NSMenu()
-
-        let header = NSMenuItem()
-        let hv = NSHostingView(rootView: HeaderView(router: router))
-        hv.frame = NSRect(x: 0, y: 0, width: 220, height: 48)
-        header.view = hv
-        menu.addItem(header)
-
+        menu.addItem(createHeaderItem())
         menu.addItem(NSMenuItem.separator())
-
-        let toggle = NSMenuItem(title: router.isDefaultBrowser ? "Disable (restore Safari)" : "Set as Default Browser",
-                                action: #selector(toggleDefault), keyEquivalent: "")
-        toggle.target = self
-        menu.addItem(toggle)
-
+        menu.addItem(NSMenuItem(title: router.isDefaultBrowser ? "Disable (restore Safari)" : "Set as Default Browser",
+                                action: #selector(toggleDefault), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
-
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ","))
-
         menu.addItem(NSMenuItem.separator())
-
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
         statusItem.menu = menu
+        statusItem.isVisible = true
+
+        NSLog("BrowserRouter: status bar item created")
+    }
+
+    private func createHeaderItem() -> NSMenuItem {
+        let item = NSMenuItem()
+        let hv = NSHostingView(rootView: HeaderView(router: router))
+        hv.frame = NSRect(x: 0, y: 0, width: 220, height: 48)
+        item.view = hv
+        return item
     }
 
     private func makeStatusIcon() -> NSImage {
-        let img = NSImage(size: NSSize(width: 18, height: 18))
+        let size = NSSize(width: 18, height: 18)
+        let img = NSImage(size: size)
         img.isTemplate = true
         img.lockFocus()
-        NSColor.black.setStroke()
-        NSColor.black.setFill()
+
+        NSColor.controlTextColor.setStroke()
+        NSColor.controlTextColor.setFill()
 
         let path = NSBezierPath()
         path.lineWidth = 2.4
         path.lineCapStyle = .round
+        path.lineJoinStyle = .round
 
+        // Horizontal line
         path.move(to: NSPoint(x: 2, y: 9))
-        path.line(to: NSPoint(x: 8, y: 9))
+        path.line(to: NSPoint(x: 9, y: 9))
         path.stroke()
 
-        path.move(to: NSPoint(x: 8, y: 9))
-        path.line(to: NSPoint(x: 15, y: 3))
+        // Upper branch (Chrome direction)
+        path.move(to: NSPoint(x: 9, y: 9))
+        path.line(to: NSPoint(x: 16, y: 3))
         path.stroke()
 
-        path.move(to: NSPoint(x: 8, y: 9))
-        path.line(to: NSPoint(x: 15, y: 15))
+        // Lower branch (Safari direction)
+        path.move(to: NSPoint(x: 9, y: 9))
+        path.line(to: NSPoint(x: 16, y: 15))
         path.stroke()
 
-        let dot = NSBezierPath(ovalIn: NSRect(x: 1.5, y: 8, width: 3, height: 3))
-        dot.fill()
+        // Origin dot
+        NSBezierPath(ovalIn: NSRect(x: 1.5, y: 8, width: 3, height: 3)).fill()
 
         img.unlockFocus()
         return img
@@ -99,7 +107,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         win.title = "BrowserRouter Settings"
         win.center()
-        win.contentView = NSHostingView(rootView: SettingsView(router: router))
+        win.contentView = NSHostingView(rootView: SettingsView(router: router, onClose: { win.close() }))
         win.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -121,7 +129,7 @@ struct HeaderView: View {
                 .foregroundColor(.accentColor)
             VStack(alignment: .leading, spacing: 1) {
                 Text("BrowserRouter").font(.headline)
-                Text("local→Chrome • other→Safari")
+                Text("local → Chrome  •  other → Safari")
                     .font(.caption2).foregroundColor(.secondary)
             }
             Spacer()
@@ -133,6 +141,7 @@ struct HeaderView: View {
 
 struct SettingsView: View {
     @ObservedObject var router: Router
+    let onClose: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -178,8 +187,7 @@ struct SettingsView: View {
             Spacer()
             HStack {
                 Spacer()
-                Button("Close") { NSApp.keyWindow?.close() }
-                    .keyboardShortcut(.escape)
+                Button("Close", action: onClose).keyboardShortcut(.escape)
             }
         }
         .padding(16)
