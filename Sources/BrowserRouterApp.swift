@@ -33,15 +33,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         guard let btn = statusItem.button else { return }
 
-        let attrStr = NSAttributedString(
-            string: "  ⑂ BrowserRouter",
-            attributes: [
-                .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium),
-                .foregroundColor: NSColor.controlTextColor,
-            ]
-        )
-        btn.attributedTitle = attrStr
-        btn.toolTip = "BrowserRouter — Click to route URLs"
+        let icon = NSImage(systemSymbolName: "arrow.triangle.branch", accessibilityDescription: "BrowserRouter")!
+        icon.isTemplate = true
+        btn.image = icon
+        btn.toolTip = "BrowserRouter – route local URLs to Chrome, others to Safari"
 
         let menu = NSMenu()
         menu.addItem(createHeaderItem())
@@ -63,6 +58,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem.menu = menu
         statusItem.isVisible = true
+
+        NSLog("BrowserRouter: status item set up with arrow.triangle.branch icon")
     }
 
     private func createHeaderItem() -> NSMenuItem {
@@ -139,7 +136,7 @@ struct WelcomeView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Label("Look in the menu bar (top-right)", systemImage: "menubar.arrow.up.rectangle")
-                Label("Click the ⑂ icon to open the menu", systemImage: "hand.point.up")
+                Label("Click the  icon to open the menu", systemImage: "arrow.triangle.branch")
                 Label("Select \"Set as Default Browser\"", systemImage: "checkmark.circle")
             }
             .font(.callout)
